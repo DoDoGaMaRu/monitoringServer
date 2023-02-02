@@ -12,10 +12,11 @@ class CustomNamespace(AsyncNamespace):
 
     def on_connect(self, sid, environ):
         client = 'ip: ' + str(environ['asgi.scope']['client'][0]) + ', sid: ' + sid + ''
-        self.logger.info(self.name + ' connect - ' + client)
+        self.logger.info(self.name + ' connected    \t- ' + client)
 
     def on_disconnect(self, sid):
-        self.logger.info(self.name + ' disconnect - sid: ' + sid)
+        client = 'sid: ' + sid
+        self.logger.info(self.name + ' disconnected \t- ' + client)
 
 
 class MachineHandler(CustomNamespace):

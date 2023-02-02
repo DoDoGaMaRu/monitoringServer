@@ -18,8 +18,9 @@ class LoggerFactory:
                     log_level: any = logging.INFO,
                     save_file: bool = False,
                     save_path: str = None):
+        _init_path(save_path)
+
         if LoggerFactory.logger is None:
-            _init_path(save_path)
             LoggerFactory.logger = logging.getLogger(name)
             LoggerFactory.logger.setLevel(log_level)
 
