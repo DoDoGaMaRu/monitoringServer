@@ -1,58 +1,56 @@
-import logging
-import clock
+import logging.handlers
 import os
 
 
-class Logger:
-    def __init__(self,
-                 name: str,
-                 path: str = None,
-                 level=logging.INFO):
-        self.name = name
-        self.logger = None
-        self.level = level
-        self.tc = clock.TimeController()
-        self.path = path
+class LoggerFactory:
+    logger = None
 
-        self.init_logger()
+    @staticmethod
+    def get_logger():
 
-    def init_logger(self):
-        self.logger = logging.getLogger(self.name)
-        self.logger.setLevel(self.level)
+        if LoggerFactory.logger is None:
+            print('Logger does not exist.')
 
-        if self.path is not None:
-            _init_path(self.path)
-            file_handler = logging.FileHandler(self.path + clock.get_day() + self.name + '.log',
-                                               encoding='utf-8')
-            self.add_handler(file_handler)
+        return LoggerFactory.logger
 
-        stream_handler = logging.StreamHandler()
-        self.add_handler(stream_handler)
+    @staticmethod
+    def init_logger(name: str = 'log',
+                    log_level: any = logging.INFO,
+                    save_file: bool = False,
+                    save_path: str = None):
+        if LoggerFactory.logger is None:
+            _init_path(save_path)
+            LoggerFactory.logger = logging.getLogger(name)
+            LoggerFactory.logger.setLevel(log_level)
 
-    def add_handler(self, handler):
-        formatter = logging.Formatter('%(asctime)s | %(name)s | %(levelname)s : %(message)s')
-        handler.setFormatter(formatter)
-        self.logger.add_handler(handler)
+            formatter = logging.Formatter('%(asctime)s | %(name)s | %(levelname)s : %(message)s')
 
-    def trigger(self):
-        is_day_changed = self.tc.is_day_change()
-        if is_day_changed:
-            self.init_logger()
+            stream_handler = _get_stream_handler(formatter)
+            LoggerFactory.logger.addHandler(stream_handler)
 
-    def info(self, message: str):
-        self.trigger()
-        self.logger.info(message)
+            if save_file:
+                file_handler = _get_file_handler(save_path, name, formatter)
+                LoggerFactory.logger.addHandler(file_handler)
+        else:
+            print('Logger already exists.')
 
-    def debug(self, message: str):
-        self.trigger()
-        self.logger.debug(message)
 
-    def error(self, message: str):
-        self.trigger()
-        self.logger.error(message)
+def _get_file_handler(path: str, name: str, formatter):
+    file_path = path + '/' + name
+    handler = logging.handlers.TimedRotatingFileHandler(filename=file_path, when='midnight',
+                                                        interval=1, encoding='utf-8')
+    handler.setFormatter(formatter)
+
+    return handler
+
+
+def _get_stream_handler(formatter):
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+
+    return handler
 
 
 def _init_path(path: str):
     if not os.path.exists(path):
         os.makedirs(path)
-

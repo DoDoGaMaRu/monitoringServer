@@ -8,12 +8,12 @@ from fastapi import FastAPI
 from configparser import ConfigParser
 from typing import List
 
-
 from model import Model
 from db import Database
-from machineHandler import MachineHandler
+from customNamespace import MachineHandler, CustomNamespace
 from dataController import DataController
 from normalization import Normalization
+from logger import LoggerFactory
 
 
 conf = ConfigParser()
@@ -31,6 +31,8 @@ send_sampling_rate = int(conf['server']['sampling_rate'])
 normalization_path = conf['norm']['path']
 machine_namespace = conf['namespace']['machine']
 monitoring_namespace = conf['namespace']['monitoring']
+log_path = conf['socket_log']['directory']
+
 
 model = Model(model_path, init_data_path, reg_model_path)
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
@@ -67,6 +69,21 @@ async def model_req(left: List[float], right: List[float], temp: List[float], na
         print(error)
 
 
+''' 
+    socket_logger   : Process socket connection logs. To save the log file, set 
+                      the argument save_file to True and set save_path to the desired 
+                      directory path.
+    
+    dc              : An object that performs all processing on data
+    
+    machine_handler : Customized AsyncNamespace of dataHandler program. It can receive 
+                      'vib', 'temp' event and hand over to callable instance(callback)
+'''
+
+LoggerFactory.init_logger(name='socket_log',
+                          save_file=True,
+                          save_path=log_path)
+socket_logger = LoggerFactory.get_logger()
 dc = DataController(model_req, Normalization(normalization_path),
                     model_batch_size, model_sampling_rate, db_1_path, db_2_path)
 
@@ -78,14 +95,20 @@ async def add_data_by_event(event, message):
         await dc.add_temp(message)
 
 
-async def distribute(event, message):
-    resampled_message = message
-
+async def event_handling(event, message):
     await add_data_by_event(event, message)
-    await sio.emit(event, resampled_message, namespace=monitoring_namespace)
+    await sio.emit(event, message, namespace=monitoring_namespace)
 
-machine_handler = MachineHandler(namespace=machine_namespace, callback=distribute)
+
+machine_handler = MachineHandler(logger=socket_logger,
+                                 namespace=machine_namespace,
+                                 callback=event_handling)
+
+monitoring = CustomNamespace(logger=socket_logger,
+                             namespace=monitoring_namespace)
+
 sio.register_namespace(namespace_handler=machine_handler)
+sio.register_namespace(namespace_handler=monitoring)
 
 
 @app.get("/{start}/{end}")
@@ -94,7 +117,8 @@ async def get_stat_month(start: datetime.date, end: datetime.date):
         machine_1_res = await Database(db_1_path).get_by_duration(start, end)
         machine_2_res = await Database(db_2_path).get_by_duration(start, end)
 
-        return {'machine_1': machine_1_res, 'machine_2': machine_2_res}
+        return {'machine_1': machine_1_res,
+                'machine_2': machine_2_res}
     except Exception as e:
         print(e)
 

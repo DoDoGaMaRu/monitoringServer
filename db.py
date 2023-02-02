@@ -66,7 +66,7 @@ class Database:
     async def get_by_one_day(self, date):
         def query(conn):
             cur = conn.cursor()
-            cur.execute('SELECT time, left_vib, right_vib, temperature value '
+            cur.execute('SELECT time, left_vib, right_vib, temperature '
                         'FROM hour_avr WHERE DATE(time) == ? ORDER BY time', (date,))
             return cur.fetchall()
 
