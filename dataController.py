@@ -1,6 +1,6 @@
 from typing import Callable, List, Awaitable
 from clock import TimeController
-from db import Database
+from db import Database, AnomalyDatabase
 from scipy import signal
 from normalization import Normalization
 from datetime import date, timedelta
@@ -10,7 +10,8 @@ class ModelMachine:
     def __init__(self,
                  name: str,
                  norm: Normalization,
-                 callback: Callable[[List[float], List[float], List[float], str], Awaitable[None]],
+                 db_path: str,
+                 callback: Callable[[List[float], List[float], List[float], str], Awaitable[dict]],
                  batch_size: int = 10,):
         self.vib_left = []
         self.vib_right = []
@@ -19,13 +20,23 @@ class ModelMachine:
         self.callback = callback
         self.name = name
         self.norm = norm
+        self.anomaly_data_db = AnomalyDatabase(db_path)
+
+    async def save_anomaly_data(self, message):
+        await self.anomaly_data_db.save_now(name=message['name'],
+                                            threshold=message['threshold'],
+                                            score=message['score'])
 
     async def trigger(self):
         if self.is_batch():
             left, right, temp = await self.norm.norm(self.vib_left[:self.batch_size],
                                                      self.vib_right[:self.batch_size],
                                                      self.temp[:self.batch_size])
-            await self.callback(left, right, temp, self.name)
+            message = await self.callback(left, right, temp, self.name)
+
+            if message['anomaly']:
+                await self.save_anomaly_data(message)
+
             self.clear_batch()
 
     def is_batch(self):
@@ -114,17 +125,18 @@ class Statistics:
 
 class DataController:
     def __init__(self,
-                 model_req: Callable[[List[float], List[float], List[float]], Awaitable[None]],
+                 model_req: Callable[[List[float], List[float], List[float]], Awaitable[dict]],
                  norm: Normalization,
                  batch_size: int,
                  sampling_rate: int,
                  db_1_path: str,
-                 db_2_path: str):
+                 db_2_path: str,
+                 anomaly_data_db_path: str):
         db1 = Database(db_1_path)
         db2 = Database(db_2_path)
 
-        self.machine1 = ModelMachine('machine1', norm, model_req, batch_size)
-        self.machine2 = ModelMachine('machine2', norm, model_req, batch_size)
+        self.machine1 = ModelMachine('machine1', norm, anomaly_data_db_path, model_req, batch_size)
+        self.machine2 = ModelMachine('machine2', norm, anomaly_data_db_path, model_req, batch_size)
         self.machine1_stat = StatMachine('machine1', db1)
         self.machine2_stat = StatMachine('machine2', db2)
         self.sampling_rate = sampling_rate

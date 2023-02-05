@@ -21,7 +21,6 @@ class Database:
         self.execute_sync(table_init)
 
     def execute_sync(self, func):
-        conn = None
         try:
             conn = sqlite3.connect(self.path)
             res = func(conn)
@@ -123,3 +122,83 @@ class Database:
                         , (time, left, right, temp))
 
         await self.execute(query)
+
+
+class AnomalyDatabase:
+    def __init__(self, path: str):
+        self.path = path
+        directory = os.path.dirname(path)
+
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        def table_init(_):
+            if not self.check_table('data'):
+                self.init_table()
+
+        self.execute_sync(table_init)
+
+    def execute_sync(self, func):
+        conn = None
+        try:
+            conn = sqlite3.connect(self.path)
+            res = func(conn)
+            conn.commit()
+            return res
+        except Exception as e:
+            conn.rollback()
+            print(e)
+        finally:
+            conn.close()
+
+    async def execute(self, func):
+        return self.execute_sync(func)
+
+    def check_table(self, table_name: str):
+        def query(conn):
+            cursor = conn.cursor()
+            cursor.execute("SELECT count(*) FROM sqlite_master WHERE type='table' and name='"+table_name+"'")
+            res = cursor.fetchone()[0]
+            if res == 1:
+                return True
+            else:
+                return False
+
+        return self.execute_sync(query)
+
+    def init_table(self):
+        def query(conn):
+            conn.execute("CREATE TABLE data(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, date TIMESTAMP,"
+                         " threshold REAL, score REAL)")
+
+        self.execute_sync(query)
+
+    async def get_all(self):
+        def query(conn):
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute('SELECT name, date, threshold, score FROM data ORDER BY time')
+            return cur.fetchall()
+
+        return await self.execute(query)
+
+    async def get_by_one_day(self, date):
+        def query(conn):
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute('SELECT name, date, threshold, score '
+                        'FROM data WHERE DATE(date) == ? ORDER BY date', (date,))
+            return cur.fetchall()
+
+        return await self.execute(query)
+
+    async def save(self, name: str, date: datetime, threshold: float, score: float):
+        def query(conn):
+            cur = conn.cursor()
+            cur.execute('INSERT INTO data(name, date, threshold, score) VALUES (?, ?, ?, ?)'
+                        , (name, date, threshold, score))
+
+        await self.execute(query)
+
+    async def save_now(self, name: str, threshold: float, score: float):
+        await self.save(name, datetime.now(), threshold, score)

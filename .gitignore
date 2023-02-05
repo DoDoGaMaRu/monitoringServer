@@ -132,3 +132,5 @@ dmypy.json
 
 /resource/model8.pth
 /resource/prognostics.pth
+/socketLog/
+/db/
