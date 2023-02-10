@@ -12,12 +12,13 @@ from model import Model
 from db import Database, AnomalyDatabase
 from customNamespace import MachineHandler, CustomNamespace
 from dataController import DataController
+from rawdataController import RawdataController
 from normalization import Normalization
 from logger import LoggerFactory
 
 
 conf = ConfigParser()
-conf.read('resource/config.ini')
+conf.read('resource/config.ini', encoding='utf-8')
 model_path = conf['model']['score_model']
 init_data_path = conf['model']['calc_init']
 reg_model_path = conf['model']['time_model']
@@ -32,7 +33,9 @@ send_sampling_rate = int(conf['server']['sampling_rate'])
 normalization_path = conf['norm']['path']
 machine_namespace = conf['namespace']['machine']
 monitoring_namespace = conf['namespace']['monitoring']
-log_path = conf['socket_log']['directory']
+log_path = conf['log']['directory']
+raw_directory = conf['csv']['directory']
+external_directory = conf['csv']['external_directory']
 
 
 ''' 
@@ -86,7 +89,7 @@ async def model_req(left: List[float], right: List[float], temp: List[float], na
         print(error)
 
 
-LoggerFactory.init_logger(name='socket_log',
+LoggerFactory.init_logger(name='log',
                           save_file=True,
                           save_path=log_path)
 
@@ -94,13 +97,17 @@ socket_logger = LoggerFactory.get_logger()
 dc = DataController(model_req, Normalization(normalization_path),
                     model_batch_size, model_sampling_rate,
                     db_1_path, db_2_path, anomaly_data_db_path)
+rdc = RawdataController(raw_directory=raw_directory,
+                        external_directory=external_directory)
 
 
 async def add_data_by_event(event, message):
     if event == 'vib':
         await dc.add_vib(message)
+        await rdc.add_vib(message)
     elif event == 'temp':
         await dc.add_temp(message)
+        await rdc.add_temp(message)
 
 
 async def event_handling(event, message):
