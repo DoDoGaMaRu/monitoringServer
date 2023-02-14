@@ -2,6 +2,7 @@ import asyncio
 import socketio
 import datetime
 
+from scipy import signal
 from asyncio import AbstractEventLoop
 from uvicorn import Config, Server
 from fastapi import FastAPI
@@ -110,9 +111,20 @@ async def add_data_by_event(event, message):
         await rdc.add_temp(message)
 
 
+async def resample_message(message, sampling_rate, data_tag_names):
+    me = message.copy()
+    for tag in data_tag_names:
+        me[tag] = signal.resample(me[tag], sampling_rate).tolist()
+
+    return me
+
+
 async def event_handling(event, message):
+    data_tag_names = list(message.keys())[1:]
+    resampled_message = await resample_message(message, send_sampling_rate, data_tag_names)
+
     await add_data_by_event(event, message)
-    await sio.emit(event, message, namespace=monitoring_namespace)
+    await sio.emit(event, resampled_message, namespace=monitoring_namespace)
 
 
 machine_handler = MachineHandler(logger=socket_logger,
