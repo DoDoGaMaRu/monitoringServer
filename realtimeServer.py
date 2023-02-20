@@ -5,6 +5,7 @@ import datetime
 from asyncio import AbstractEventLoop
 from uvicorn import Config, Server
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from configparser import ConfigParser
 from typing import List
 
@@ -56,7 +57,13 @@ log_path                = conf['log']['directory']
 model = Model(model_path, init_data_path, reg_model_path)
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 app = FastAPI()
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def server_load(_app, _config: ConfigParser, loop: AbstractEventLoop):
     config = Config(app=_app,
