@@ -35,6 +35,9 @@ anomaly_data_db_path    = conf['database']['anomaly_data']
 
 origins                 = conf['server']['origins'].split(',')
 send_sampling_rate      = int(conf['server']['sampling_rate'])
+ping_interval           = int(conf['server']['ping_interval'])
+ping_timeout            = int(conf['server']['ping_timeout'])
+
 machine_namespace       = conf['namespace']['machine']
 monitoring_namespace    = conf['namespace']['monitoring']
 
@@ -58,15 +61,16 @@ external_directory      = conf['csv']['external_directory']
 
 
 model = Model(model_path, init_data_path, reg_model_path)
-sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
+sio = socketio.AsyncServer(async_mode='asgi',
+                           cors_allowed_origins='*',
+                           ping_interval=ping_interval,
+                           ping_timeout=ping_timeout,)
 app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware,
+                   allow_origins=origins,
+                   allow_credentials=True,
+                   allow_methods=["*"],
+                   allow_headers=["*"],)
 
 
 def server_load(_app, _config: ConfigParser, loop: AbstractEventLoop):
@@ -101,7 +105,7 @@ async def model_req(left: List[float], right: List[float], temp: List[float], na
         print(error)
 
 
-LoggerFactory.init_logger(name='log',
+LoggerFactory.init_logger(name='socket_log',
                           save_file=True,
                           save_path=log_path)
 
