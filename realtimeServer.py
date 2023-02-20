@@ -18,21 +18,25 @@ from logger import LoggerFactory
 
 conf = ConfigParser()
 conf.read('resource/config.ini')
-model_path = conf['model']['score_model']
-init_data_path = conf['model']['calc_init']
-reg_model_path = conf['model']['time_model']
-db_1_path = conf['database']['machine1']
-db_2_path = conf['database']['machine2']
-anomaly_data_db_path = conf['database']['anomaly_data']
-model_sampling_rate = int(conf['model']['rate'])
-model_batch_size = int(conf['model']['batch_size'])
-threshold_machine1 = int(conf['model']['threshold_machine1'])
-threshold_machine2 = int(conf['model']['threshold_machine2'])
-send_sampling_rate = int(conf['server']['sampling_rate'])
-normalization_path = conf['norm']['path']
-machine_namespace = conf['namespace']['machine']
-monitoring_namespace = conf['namespace']['monitoring']
-log_path = conf['socket_log']['directory']
+model_path              = conf['model']['score_model']
+init_data_path          = conf['model']['calc_init']
+reg_model_path          = conf['model']['time_model']
+model_sampling_rate     = int(conf['model']['rate'])
+model_batch_size        = int(conf['model']['batch_size'])
+threshold_machine1      = int(conf['model']['threshold_machine1'])
+threshold_machine2      = int(conf['model']['threshold_machine2'])
+
+db_1_path               = conf['database']['machine1']
+db_2_path               = conf['database']['machine2']
+anomaly_data_db_path    = conf['database']['anomaly_data']
+
+origins                 = conf['server']['origins'].split(',')
+send_sampling_rate      = int(conf['server']['sampling_rate'])
+machine_namespace       = conf['namespace']['machine']
+monitoring_namespace    = conf['namespace']['monitoring']
+
+normalization_path      = conf['norm']['path']
+log_path                = conf['log']['directory']
 
 
 ''' 
